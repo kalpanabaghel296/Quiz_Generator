@@ -1,0 +1,76 @@
+# =========================
+# 🔹 Python / Backend
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+
+# Virtual environment
+venv/
+.env
+.env.*
+
+# Logs
+*.log
+
+# Temporary files
+temp_*.pdf
+*.pdf
+
+# Chroma DB
+chroma_db/
+
+# =========================
+# 🔹 Node / Frontend
+# =========================
+node_modules/
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# 🔹 OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+.idea/
+
+# =========================
+# 🔹 Environment / Secrets
+# =========================
+.env
+.env.local
+.env.development
+.env.production
+
+# API keys
+*.key
+
+# =========================
+# 🔹 Misc
+# =========================
+*.zip
+*.tar.gz
+*.rar
+
+# Coverage
+coverage/
+
+# =========================
+# 🔹 PDF Outputs (Generated)
+# =========================
+*_questions.pdf
+*_answers.pdf
