@@ -1,119 +1,103 @@
-import React, { useState } from "react";
+import React from "react";
 import axios from "axios";
 
-export default function Results({ results, quizId }) {
-  const [downloading, setDownloading] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
+export default function Results({ results, quizId, setStep,
+  setDocId,
+  setQuiz,
+  setQuizId,
+  setResults }) {
+  if (!results) return null;
 
-  // 🔥 Debug (VERY IMPORTANT)
-  console.log("Results quizId:", quizId);
-
-  if (!results) {
-    return (
-      <div className="text-center mt-10 text-gray-600">
-        No results available.
-      </div>
+  const downloadQuestions = async () => {
+    const res = await axios.get(
+      `http://127.0.0.1:8000/api/download/questions/${quizId}`,
+      { responseType: "blob" }
     );
-  }
-
-  // ✅ Download PDF
-  const handleDownload = async () => {
-    if (!quizId) {
-      alert("Quiz ID missing. Please regenerate quiz.");
-      return;
-    }
-
-    try {
-      setDownloading(true);
-
-      const response = await axios.get(
-        `http://127.0.0.1:8000/api/download/${quizId}`,
-        { responseType: "blob" }
-      );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "quiz-results.pdf");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to download PDF");
-    } finally {
-      setDownloading(false);
-    }
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "questions.pdf";
+    link.click();
   };
 
-  // ✅ Regenerate Quiz
-  const handleRegenerate = async () => {
-    try {
-      setRegenerating(true);
+  const restartQuiz = () => {
+  setDocId(null);
+  setQuiz(null);
+  setQuizId(null);
+  setResults(null);
+  setStep(1);
+};
 
-      // ⚠️ You MUST send full data (backend requirement)
-      const docId = localStorage.getItem("doc_id");
-
-if (!docId) {
-  alert("Document missing. Please upload again.");
-  return;
-}
-
-await axios.post("http://127.0.0.1:8000/api/regenerate", {
-  doc_id: docId,
-  mode: "mcq",
-  difficulty: "mixed",
-  prompt: "",
-  num_questions: 10,
-});
-
-      alert("Quiz regenerated! Please go back and generate again.");
-    } catch (err) {
-      console.error(err);
-      alert("Regeneration failed");
-    } finally {
-      setRegenerating(false);
-    }
+  const downloadAnswers = async () => {
+    const res = await axios.get(
+      `http://127.0.0.1:8000/api/download/answers/${quizId}`,
+      { responseType: "blob" }
+    );
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "answers.pdf";
+    link.click();
   };
 
   return (
-    <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-lg">
-      <h2 className="text-3xl font-bold text-center mb-6">
-        Quiz Results
-      </h2>
+    <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow">
+      <h2 className="text-2xl font-bold mb-4">Results</h2>
 
       {/* Score */}
-      <div className="bg-green-100 p-6 rounded-lg text-center mb-6">
-        <p className="text-xl font-semibold">Your Score</p>
-        <p className="text-4xl font-bold text-green-700">
-          {results.score} / 100
+      <div className="mb-4">
+        <p className="text-xl font-semibold">
+          Score: {results.score} / 100
         </p>
       </div>
 
       {/* Feedback */}
-      <div className="mb-6">
-        <h3 className="font-semibold text-lg mb-2">Feedback</h3>
-        <div className="bg-gray-100 p-4 rounded">
-          {results.feedback}
-        </div>
+      <div className="mb-6 bg-gray-100 p-4 rounded">
+        {results.feedback}
+      </div>
+
+      {/* Detailed Results */}
+      <div className="space-y-4">
+        {results.details.map((item, i) => (
+          <div key={i} className="border p-4 rounded">
+            <p className="font-semibold">Q{i + 1}: {item.question}</p>
+
+            <p>
+              Your Answer: <b>{item.user_answer}</b>
+            </p>
+
+            <p>
+              Correct Answer: <b>{item.correct_answer}</b>
+            </p>
+
+            <p className={item.is_correct ? "text-green-600" : "text-red-600"}>
+              {item.is_correct ? "✅ Correct" : "❌ Wrong"}
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Buttons */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex gap-4 mt-6">
         <button
-          onClick={handleDownload}
-          disabled={downloading}
-          className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+          onClick={downloadQuestions}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          {downloading ? "Downloading..." : "Download PDF"}
+          Download Questions
         </button>
 
         <button
-          onClick={handleRegenerate}
-          disabled={regenerating}
-          className="flex-1 bg-gray-600 text-white py-2 rounded hover:bg-gray-700 disabled:opacity-50"
+          onClick={downloadAnswers}
+          className="bg-green-600 text-white px-4 py-2 rounded"
         >
-          {regenerating ? "Regenerating..." : "Regenerate Quiz"}
+          Download Answers
+        </button>
+
+        <button
+          onClick={restartQuiz}
+          className="flex-1 bg-purple-600 text-white py-2 rounded hover:bg-purple-700"
+        >
+        Start New Quiz
         </button>
       </div>
     </div>

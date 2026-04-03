@@ -7,59 +7,85 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 def extract_json(text):
-    """
-    Extract JSON safely from messy LLM output
-    """
     try:
-        # Remove markdown/code blocks
-        text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-
-        # Extract JSON object
+        # Extract JSON block
         match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
 
-        raise ValueError("No JSON found")
+        if not match:
+            return {
+                "score": 0,
+                "feedback": "Invalid response",
+                "details": []
+            }
 
-    except Exception:
-        # 🔥 FALLBACK RESPONSE (VERY IMPORTANT)
+        json_text = match.group()
+
+        # Fix common issues
+        json_text = json_text.replace("\n", " ")
+        json_text = json_text.replace("'", '"')
+
+        return json.loads(json_text)
+
+    except Exception as e:
+        print("JSON ERROR:", e)
+        print("RAW RESPONSE:", text)
+
         return {
             "score": 0,
-            "feedback": "AI response format error. Please try again."
+            "feedback": "AI response parsing failed",
+            "details": []
         }
 
 
-def grade_answers(questions, user_answers):
+def grade_answers(quiz, user_answers):
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
     prompt = f"""
-    You are an AI grader.
+    Evaluate each question carefully.
 
-    Compare user answers with correct answers.
+    Quiz:
+    {quiz}
 
-    Questions:
-    {questions}
-
-    Answers:
+    User Answers:
     {user_answers}
 
     IMPORTANT:
-    - Return ONLY valid JSON
-    - DO NOT return code
-    - DO NOT explain
-    - DO NOT use markdown
+    - Return ONLY JSON
+    - No explanation
 
     Format:
     {{
-        "score": number (0-100),
-        "feedback": "short feedback"
+      "details": [
+        {{
+          "question": "",
+          "user_answer": "",
+          "correct_answer": "",
+          "is_correct": true
+        }}
+      ]
     }}
     """
 
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
     )
 
-    response_text = response.choices[0].message.content
+    data = extract_json(response.choices[0].message.content)
 
-    return extract_json(response_text)
+    # ✅ CALCULATE SCORE MANUALLY
+    details = data.get("details", [])
+
+    correct_count = sum(1 for q in details if q.get("is_correct"))
+
+    total = len(details)
+
+    score = int((correct_count / total) * 100) if total > 0 else 0
+
+    feedback = "Good job!" if score > 60 else "Needs improvement"
+
+    return {
+        "score": score,
+        "feedback": feedback,
+        "details": details
+    }

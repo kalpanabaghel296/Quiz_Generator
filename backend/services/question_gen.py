@@ -1,12 +1,11 @@
 from groq import Groq
 import os
-from config import settings
-from services.rag_pipeline import retrieve_context
 import json
+import re
+from services.rag_pipeline import retrieve_context
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-import re
 
 def extract_json(text):
     try:
@@ -16,7 +15,9 @@ def extract_json(text):
         else:
             raise ValueError("No JSON found")
     except Exception as e:
-        raise ValueError(f"Failed to parse JSON: {text}")
+        print("RAW QUIZ RESPONSE:", text)
+        raise ValueError(f"Failed to parse JSON")
+
 
 def generate_quiz(doc_id, mode, difficulty, prompt, num_questions):
     context = retrieve_context("Generate quiz", doc_id)
@@ -26,22 +27,44 @@ def generate_quiz(doc_id, mode, difficulty, prompt, num_questions):
 
     Mode: {mode}
     Difficulty: {difficulty}
-    Custom instruction: {prompt}
+    Instruction: {prompt}
 
     Context:
     {context}
 
-    IMPORTANT:
-    Return ONLY valid JSON array.
-    No explanation. No text outside JSON.
+    STRICT RULES:
+    - Each question MUST include:
+      1. question (string)
+      2. options (array of 4 strings)
+      3. answer (integer index: 0,1,2,3)
+
+    - DO NOT skip "answer"
+    - DO NOT return text outside JSON
+    - DO NOT explain anything
+
+    OUTPUT FORMAT:
+    [
+      {{
+        "question": "string",
+        "options": ["a", "b", "c", "d"],
+        "answer": 0
+      }}
+    ]
     """
 
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": full_prompt}],
-        temperature=0.7,
+        temperature=0.3,
     )
 
     content = response.choices[0].message.content
 
-    return extract_json(content)
+    quiz = extract_json(content)
+
+    # 🔥 SAFETY FIX (VERY IMPORTANT)
+    for q in quiz:
+        if "answer" not in q:
+            q["answer"] = 0
+
+    return quiz

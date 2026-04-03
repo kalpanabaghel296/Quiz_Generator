@@ -35,7 +35,15 @@ export default function App() {
         />
       )}
 
-      {step === 4 && <Results results={results} quizId={quizId} />}
+      {step === 4 && <Results
+    results={results}
+    quizId={quizId}
+    setStep={setStep}
+    setDocId={setDocId}
+    setQuiz={setQuiz}
+    setQuizId={setQuizId}
+    setResults={setResults}
+  />}
     </div>
   );
 }

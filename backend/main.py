@@ -1,12 +1,16 @@
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from services.pdf_processor import extract_text_from_pdf
-from fastapi.responses import FileResponse
 from services.ocr_processor import ocr_pdf
 from services.rag_pipeline import ingest_document
 from services.question_gen import generate_quiz
 from services.grader import grade_answers
-from services.pdf_export import generate_pdf
+from services.pdf_export import generate_question_pdf, generate_answer_pdf
+from fastapi.responses import FileResponse
+# from dotenv import load_dotenv
+# load_dotenv()
 import shutil
 import os
 import uuid
@@ -83,27 +87,30 @@ def grade(data: dict):
 
 from fastapi.responses import FileResponse
 
-@app.get("/api/download/{quiz_id}")
-def download_quiz(quiz_id: str):
+@app.get("/api/download/questions/{quiz_id}")
+def download_questions(quiz_id: str):
     quiz = quizzes.get(quiz_id)
-    results = quiz_results.get(quiz_id)  # ✅ GET RESULTS
 
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
-    if not results:
-        raise HTTPException(status_code=400, detail="No results found. Submit quiz first.")
+    file_path = f"{quiz_id}_questions.pdf"
+    generate_question_pdf(quiz, file_path)
 
-    file_path = f"{quiz_id}.pdf"
+    return FileResponse(file_path, filename="questions.pdf")
 
-    # ✅ NOW THIS WORKS
-    generate_pdf(quiz, results, file_path)
 
-    return FileResponse(
-        path=file_path,
-        media_type="application/pdf",
-        filename="quiz-results.pdf"
-    )
+@app.get("/api/download/answers/{quiz_id}")
+def download_answers(quiz_id: str):
+    quiz = quizzes.get(quiz_id)
+
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    file_path = f"{quiz_id}_answers.pdf"
+    generate_answer_pdf(quiz, file_path)
+
+    return FileResponse(file_path, filename="answers.pdf")
 @app.post("/api/regenerate")
 def regenerate(data: dict):
     quiz = generate_quiz(
