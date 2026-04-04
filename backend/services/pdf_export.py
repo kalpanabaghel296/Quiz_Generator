@@ -248,18 +248,7 @@ def _build_pdf(path: str, quiz: list, show_answers: bool, title: str, subtitle: 
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_question_pdf(quiz: list, output_path: str) -> str:
-    """
-    Generate a 'questions only' PDF (blank answer spaces).
-
-    Parameters
-    ----------
-    quiz        : list of question dicts
-    output_path : str  path where the PDF will be saved
-
-    Returns
-    -------
-    str  — the output_path (for chaining)
-    """
+  
     _build_pdf(
         path=output_path,
         quiz=quiz,

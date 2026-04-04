@@ -54,7 +54,7 @@ export default function UploadPage({ onDone }) {
 
           <p className="up-desc">
             Upload lecture notes, textbooks, or research papers.
-            QuizForge analyses the content and generates tailored
+            EduQuiz analyses the content and generates tailored
             questions with automatic grading in seconds.
           </p>
 

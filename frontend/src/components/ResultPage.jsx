@@ -48,7 +48,7 @@ export default function ResultsPage({ result, questions, onRestart }) {
       doc.text("QF", ML+7, 38);
 
       setFont(16,[232,232,244],"bold");
-      doc.text("QuizForge", ML+36, 34);
+      doc.text("EduQuiz", ML+36, 34);
       setFont(8,[136,136,170]);
       doc.text(withAnswers ? "Quiz · Answer Key" : "Quiz · Question Paper", ML+36, 46);
 
@@ -163,13 +163,13 @@ export default function ResultsPage({ result, questions, onRestart }) {
       for (let p=1; p<=pages; p++) {
         doc.setPage(p);
         setFont(7.5,[120,120,150]);
-        doc.text("QuizForge · AI Assessment Tool", ML, H-22);
+        doc.text("EduQuiz · AI Assessment Tool", ML, H-22);
         doc.text(`Page ${p} of ${pages}`, W-MR-52, H-22);
         doc.setDrawColor(200,198,230); doc.setLineWidth(0.3);
         doc.line(ML, H-30, W-MR, H-30);
       }
 
-      doc.save(withAnswers ? "quizforge-answer-key.pdf" : "quizforge-questions.pdf");
+      doc.save(withAnswers ? "EduQuiz-answer-key.pdf" : "EduQuiz-questions.pdf");
     } catch (err) {
       console.error("PDF export error:", err);
       alert("PDF export failed. Make sure jsPDF is installed: npm install jspdf");
