@@ -1,14 +1,4 @@
-"""
-services/pdf_export.py
-----------------------
-Generates two types of PDF from a quiz:
 
-  1. generate_question_pdf()  — questions only, blank answer spaces
-  2. generate_answer_pdf()    — questions + correct answers + feedback
-
-Uses reportlab (already common in Python PDF stacks).
-Install: pip install reportlab
-"""
 
 import logging
 from datetime import datetime

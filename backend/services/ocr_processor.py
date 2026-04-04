@@ -1,34 +1,10 @@
-"""
-services/ocr_processor.py
---------------------------
-OCR fallback for scanned / image-based PDFs.
-
-Requires:
-  - poppler  (system install, adds pdfinfo/pdftoppm to PATH)
-  - pdf2image  (pip install pdf2image)
-  - pytesseract  (pip install pytesseract)
-  - Tesseract OCR  (system install: https://github.com/UB-Mannheim/tesseract/wiki)
-
-On Windows:
-  - Poppler:    https://github.com/oschwartz10612/poppler-windows/releases
-                Extract to C:\poppler\ and add C:\poppler\Library\bin to PATH
-  - Tesseract:  https://github.com/UB-Mannheim/tesseract/wiki
-                Install and add to PATH (usually C:\Program Files\Tesseract-OCR)
-"""
-
 import logging
 import os
 
 logger = logging.getLogger(__name__)
 
-
 def ocr_pdf(file_path: str) -> str:
-    """
-    Extract text from a scanned PDF using OCR.
-
-    Returns extracted text string, or empty string with a clear
-    logged error if poppler / tesseract are not installed.
-    """
+    
     if not os.path.exists(file_path):
         logger.error(f"OCR: file not found: {file_path}")
         return ""

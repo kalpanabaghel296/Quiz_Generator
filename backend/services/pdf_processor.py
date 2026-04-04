@@ -1,9 +1,4 @@
-"""
-services/pdf_processor.py
--------------------------
-Extracts text from a PDF file using pdfplumber (primary) with
-a page-by-page fallback so partial extraction still works.
-"""
+
 
 import os
 import logging
@@ -12,20 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_text_from_pdf(path: str) -> str:
-    """
-    Extract all text from a PDF file.
-
-    Parameters
-    ----------
-    path : str
-        Absolute or relative path to the .pdf file.
-
-    Returns
-    -------
-    str
-        Concatenated text from all pages.
-        Returns empty string if extraction completely fails.
-    """
+    
     if not os.path.exists(path):
         logger.error(f"PDF not found: {path}")
         return ""

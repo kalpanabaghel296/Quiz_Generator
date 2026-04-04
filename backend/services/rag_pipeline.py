@@ -1,17 +1,3 @@
-"""
-services/rag_pipeline.py
-------------------------
-Lightweight in-memory document store.
-
-Keeps extracted PDF text in a dict keyed by a UUID (doc_id).
-The question generator later fetches the text by doc_id.
-
-For a production RAG pipeline you would swap the in-memory dict
-for a vector store (e.g. ChromaDB, Pinecone) and add chunking +
-embedding. For this project, simple key-value storage is sufficient
-because the AI model receives the raw text directly in the prompt.
-"""
-
 import uuid
 import logging
 

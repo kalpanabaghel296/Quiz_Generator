@@ -1,22 +1,21 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 export default function QuizPage({ questions, onSubmit, onBack }) {
-  const [answers, setAnswers]   = useState({});       // { [id]: value }
+  const [answers, setAnswers]   = useState({});
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [modal, setModal]       = useState(false);
+  const topRef = useRef();
 
   const set = (id, val) => setAnswers(p => ({ ...p, [id]: val }));
 
   const attempted = Object.values(answers).filter(v => v !== null && v !== undefined && v !== "").length;
   const pct = Math.round((attempted / questions.length) * 100);
+  const blank = questions.length - attempted;
 
-  const trySubmit = () => {
-    const blank = questions.length - attempted;
-    blank > 0 ? setModal(true) : doSubmit();
-  };
+  const trySubmit = () => blank > 0 ? setModal(true) : doSubmit();
 
   const doSubmit = async () => {
     setModal(false); setLoading(true); setError("");
@@ -34,58 +33,109 @@ export default function QuizPage({ questions, onSubmit, onBack }) {
   };
 
   return (
-    <div className="page">
-      <div className="ambient"><div className="ambient-a"/><div className="ambient-b"/><div className="ambient-c"/></div>
+    <div className="page qz-page">
+      <div className="glow"><div className="glow-a"/><div className="glow-b"/></div>
 
-      <div className="wrap qz-layout">
-        {/* Sticky header */}
+      <div className="wrap qz-wrap" ref={topRef}>
+        {/* Header */}
         <div className="qz-header">
-          <button className="btn btn-ghost" onClick={onBack}>← Config</button>
+          <button className="btn btn-ghost" onClick={onBack}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Back
+          </button>
 
-          <div className="qz-progress">
-            <span className="qz-prog-label">{attempted}/{questions.length} answered</span>
-            <div className="qz-bar">
-              <div className="qz-bar-fill" style={{ width: `${pct}%` }}/>
+          <div className="qz-progress-area">
+            <div className="qz-prog-bar">
+              <div className="qz-prog-fill" style={{ width: `${pct}%` }}/>
             </div>
           </div>
 
-          <span className="qz-pct">{pct}%</span>
+          <div className="qz-meta">
+            <span className="tag tag-ind">{questions.length} Questions</span>
+            <span className="qz-count">{attempted}/{questions.length} answered</span>
+          </div>
         </div>
 
-        <div className="qz-title-row">
+        <div className="qz-heading">
           <h2 className="qz-title">Answer the Questions</h2>
-          <span className="tag tag-v">{questions.length} Questions</span>
+          <p className="qz-sub">Select or type your answers below. You can revisit any question before submitting.</p>
         </div>
 
-        {/* Questions */}
-        <div className="qz-list">
-          {questions.map((q, i) => (
-            <QCard key={q.id} q={q} index={i} answer={answers[q.id]} onAnswer={v => set(q.id, v)} />
-          ))}
+        {/* Two-column layout: questions left, sidebar right */}
+        <div className="qz-layout">
+          <div className="qz-questions">
+            {questions.map((q, i) => (
+              <QCard key={q.id} q={q} idx={i} answer={answers[q.id]} onAnswer={v => set(q.id, v)} />
+            ))}
+          </div>
+
+          {/* Sidebar */}
+          <aside className="qz-sidebar">
+            <div className="sidebar-card card-elevated">
+              <div className="sidebar-title">Question map</div>
+              <div className="q-map">
+                {questions.map((q, i) => {
+                  const ans = answers[q.id];
+                  const done = ans !== null && ans !== undefined && ans !== "";
+                  return (
+                    <div
+                      key={q.id}
+                      className={`q-map-dot ${done ? "q-map-done" : ""}`}
+                      title={`Q${i+1}`}
+                    >
+                      {i + 1}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="sidebar-divider divider"/>
+
+              <div className="sidebar-stat">
+                <div className="ss-row">
+                  <span className="ss-label">Answered</span>
+                  <span className="ss-val ok">{attempted}</span>
+                </div>
+                <div className="ss-row">
+                  <span className="ss-label">Remaining</span>
+                  <span className="ss-val muted">{blank}</span>
+                </div>
+                <div className="ss-row">
+                  <span className="ss-label">Progress</span>
+                  <span className="ss-val">{pct}%</span>
+                </div>
+              </div>
+
+              <div className="sidebar-divider divider"/>
+
+              {error && <div className="err-box" style={{marginBottom:"1rem"}}>{error}</div>}
+
+              <button className="btn btn-primary" onClick={trySubmit} disabled={loading}>
+                {loading ? <><span className="spin"/>Grading…</> : "Submit Quiz →"}
+              </button>
+            </div>
+          </aside>
         </div>
-
-        {error && <div className="err-box">{error}</div>}
-
-        <button className="btn btn-primary" onClick={trySubmit} disabled={loading}>
-          {loading ? <><span className="spin"/> Grading your answers…</> : "Submit Quiz →"}
-        </button>
       </div>
 
-      {/* Confirmation modal */}
+      {/* Modal */}
       {modal && (
         <div className="modal-bg" onClick={() => setModal(false)}>
-          <div className="modal-box card" onClick={e => e.stopPropagation()}>
-            <div className="modal-icon">⚠️</div>
-            <h3 className="modal-title">
-              {questions.length - attempted} question{questions.length - attempted > 1 ? "s" : ""} unanswered
-            </h3>
+          <div className="modal-box card-elevated" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon-wrap">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="var(--warn)" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <h3 className="modal-title">{blank} question{blank > 1 ? "s" : ""} unanswered</h3>
             <p className="modal-body">
-              Unanswered questions will score 0. You can go back and fill them in,
-              or submit now.
+              Unanswered questions will receive a score of 0. You can continue reviewing or submit now.
             </p>
-            <div className="modal-btns">
-              <button className="btn btn-ghost" style={{padding:"0.75rem 1.25rem"}} onClick={() => setModal(false)}>Keep reviewing</button>
-              <button className="btn btn-primary" style={{maxWidth:200}} onClick={doSubmit}>Submit anyway</button>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" style={{flex:1}} onClick={() => setModal(false)}>Keep reviewing</button>
+              <button className="btn btn-primary" style={{flex:1}} onClick={doSubmit}>Submit anyway</button>
             </div>
           </div>
         </div>
@@ -96,43 +146,54 @@ export default function QuizPage({ questions, onSubmit, onBack }) {
   );
 }
 
-function QCard({ q, index, answer, onAnswer }) {
-  const answered = answer !== null && answer !== undefined && answer !== "";
+function QCard({ q, idx, answer, onAnswer }) {
+  const done = answer !== null && answer !== undefined && answer !== "";
 
   return (
-    <div className={`qcard card ${answered ? "qcard-done" : ""}`}>
-      <div className="qcard-meta">
-        <span className="qcard-num">Q{index + 1}</span>
-        <span className={`tag ${q.type === "mcq" ? "tag-v" : "tag-teal"}`}>
-          {q.type === "mcq" ? "MCQ" : "Short Answer"}
-        </span>
-        {answered && <span className="qcard-check">✓ Answered</span>}
+    <div className={`qcard card-elevated ${done ? "qcard-done" : ""}`}>
+      <div className="qcard-top">
+        <div className="qcard-meta">
+          <span className="qcard-num">Q{idx + 1}</span>
+          <span className={`tag ${q.type === "mcq" ? "tag-ind" : "tag-ok"}`}>
+            {q.type === "mcq" ? "Multiple Choice" : "Short Answer"}
+          </span>
+        </div>
+        {done && (
+          <div className="qcard-done-badge">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Answered
+          </div>
+        )}
       </div>
 
-      <p className="qcard-text">{q.question}</p>
+      <p className="qcard-q">{q.question}</p>
 
       {q.type === "mcq" ? (
-        <div className="opt-list">
+        <div className="opts">
           {q.options.map((opt, i) => (
-            <button key={i} className={`opt ${answer === i ? "opt-sel" : ""}`} onClick={() => onAnswer(i)}>
+            <button
+              key={i}
+              className={`opt ${answer === i ? "opt-sel" : ""}`}
+              onClick={() => onAnswer(i)}
+            >
               <span className="opt-letter">{String.fromCharCode(65 + i)}</span>
               <span className="opt-text">{opt}</span>
               {answer === i && (
-                <span className="opt-tick">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path d="M3 8l4 4 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
+                <svg className="opt-tick" width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 7l4 4 6-6" stroke="var(--ind3)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               )}
             </button>
           ))}
         </div>
       ) : (
         <textarea
-          className="short-ta"
-          placeholder="Type your answer here…"
-          value={answer || ""}
+          className="field qcard-ta"
+          placeholder="Write your answer here…"
           rows={3}
+          value={answer || ""}
           onChange={e => onAnswer(e.target.value)}
         />
       )}
@@ -141,101 +202,131 @@ function QCard({ q, index, answer, onAnswer }) {
 }
 
 const css = `
-.qz-layout {
-  max-width: 680px; margin: 0 auto;
-  display: flex; flex-direction: column; gap: 1.5rem;
-  padding-top: 1rem;
+.qz-page { padding-top: 2rem; }
+
+.qz-wrap {
+  max-width: 980px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 1.75rem;
 }
 
+/* Header */
 .qz-header {
   display: flex; align-items: center; gap: 1rem;
-  background: rgba(6,6,15,0.8); backdrop-filter: blur(12px);
-  padding: 0.75rem; border-radius: var(--r);
-  border: 1px solid var(--border);
-  position: sticky; top: 1rem; z-index: 10;
+  position: sticky; top: calc(56px + 0.75rem); z-index: 20;
+  background: rgba(8,8,16,0.85); backdrop-filter: blur(16px);
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 0.75rem 1rem;
 }
 
-.qz-progress { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
-.qz-prog-label { font-size: 0.75rem; color: var(--muted); }
-.qz-bar { height: 4px; background: var(--border); border-radius: 100px; overflow: hidden; }
-.qz-bar-fill {
+.qz-progress-area { flex: 1; }
+.qz-prog-bar { height: 3px; background: var(--border2); border-radius: 100px; overflow: hidden; }
+.qz-prog-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--v) 0%, var(--teal) 100%);
+  background: linear-gradient(90deg, var(--ind) 0%, var(--ind3) 100%);
   border-radius: 100px; transition: width 0.35s ease;
 }
-.qz-pct {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.9rem; font-weight: 700; color: var(--v2); min-width: 36px; text-align: right;
+
+.qz-meta { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+.qz-count { font-size: 0.78rem; color: var(--t2); font-weight: 500; }
+
+.qz-heading { display: flex; flex-direction: column; gap: 0.3rem; }
+.qz-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2rem);
+  font-weight: 400; letter-spacing: -0.02em;
 }
+.qz-sub { font-size: 0.875rem; color: var(--t2); }
 
-.qz-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
-.qz-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem; font-weight: 700; }
+/* Two-column layout */
+.qz-layout { display: grid; grid-template-columns: 1fr 240px; gap: 1.5rem; align-items: start; }
+@media (max-width: 780px) { .qz-layout { grid-template-columns: 1fr; } .qz-sidebar { order: -1; } }
 
-.qz-list { display: flex; flex-direction: column; gap: 1.1rem; }
+.qz-questions { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Sidebar */
+.qz-sidebar { position: sticky; top: calc(56px + 5rem); }
+.sidebar-card { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+.sidebar-title { font-size: 0.72rem; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: 0.08em; }
+
+.q-map { display: flex; flex-wrap: wrap; gap: 5px; }
+.q-map-dot {
+  width: 26px; height: 26px; border-radius: var(--r3);
+  border: 1px solid var(--border2); background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 600; color: var(--t3);
+  transition: all 0.2s; cursor: default;
+}
+.q-map-done { background: rgba(91,91,214,0.15); border-color: rgba(91,91,214,0.35); color: var(--ind3); }
+
+.sidebar-divider { margin: 0; }
+
+.sidebar-stat { display: flex; flex-direction: column; gap: 0.6rem; }
+.ss-row { display: flex; justify-content: space-between; align-items: center; }
+.ss-label { font-size: 0.78rem; color: var(--t2); }
+.ss-val { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.ss-val.ok { color: var(--ok); }
+.ss-val.muted { color: var(--t3); }
 
 /* Question card */
 .qcard {
   padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;
   transition: border-color 0.2s;
 }
-.qcard-done { border-color: rgba(124,110,247,0.3); }
+.qcard-done { border-color: rgba(91,91,214,0.25); }
 
-.qcard-meta { display: flex; align-items: center; gap: 0.6rem; }
-.qcard-num { font-size: 0.7rem; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; }
-.qcard-check { margin-left: auto; font-size: 0.72rem; color: var(--ok); font-weight: 600; }
+.qcard-top { display: flex; align-items: center; justify-content: space-between; }
+.qcard-meta { display: flex; align-items: center; gap: 0.55rem; }
+.qcard-num { font-size: 0.7rem; font-weight: 700; color: var(--t3); letter-spacing: 0.06em; text-transform: uppercase; }
 
-.qcard-text { font-size: 0.975rem; line-height: 1.65; color: var(--text); }
+.qcard-done-badge {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.7rem; font-weight: 600; color: var(--ok);
+  background: rgba(61,214,140,0.08); border: 1px solid rgba(61,214,140,0.2);
+  padding: 0.2rem 0.6rem; border-radius: 100px;
+}
+
+.qcard-q { font-size: 1rem; line-height: 1.65; color: var(--text); font-weight: 400; }
 
 /* Options */
-.opt-list { display: flex; flex-direction: column; gap: 0.45rem; }
-
+.opts { display: flex; flex-direction: column; gap: 0.45rem; }
 .opt {
   display: flex; align-items: center; gap: 0.85rem;
-  padding: 0.75rem 1rem; border-radius: var(--r2);
+  padding: 0.75rem 1rem; border-radius: var(--r3);
   border: 1px solid var(--border); background: rgba(255,255,255,0.02);
-  text-align: left; transition: all 0.17s; font-size: 0.9rem;
+  text-align: left; font-size: 0.9rem; transition: all 0.16s; cursor: pointer;
 }
-.opt:hover { border-color: var(--border-h); background: var(--surface-h); }
-.opt-sel {
-  border-color: var(--v) !important;
-  background: rgba(124,110,247,0.1) !important;
-}
+.opt:hover { border-color: var(--border2); background: var(--surface2); }
+.opt-sel { border-color: var(--ind) !important; background: rgba(91,91,214,0.09) !important; }
 
 .opt-letter {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 1.5px solid var(--border-h);
+  width: 24px; height: 24px; border-radius: var(--r3);
+  border: 1px solid var(--border2); background: var(--surface);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
-  color: var(--muted); transition: all 0.17s;
-  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.68rem; font-weight: 700; color: var(--t2);
+  flex-shrink: 0; transition: all 0.16s; font-family: var(--font-body);
 }
-.opt-sel .opt-letter {
-  background: var(--v); border-color: var(--v); color: white;
-}
+.opt-sel .opt-letter { background: var(--ind); border-color: var(--ind); color: white; }
+.opt-text { flex: 1; line-height: 1.45; color: var(--text); }
+.opt-tick { margin-left: auto; flex-shrink: 0; }
 
-.opt-text { flex: 1; color: var(--text); line-height: 1.4; }
-.opt-tick { margin-left: auto; color: var(--ok); flex-shrink: 0; }
-
-/* Short textarea */
-.short-ta {
-  width: 100%; background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border); border-radius: var(--r2);
-  padding: 0.85rem 1rem; color: var(--text);
-  font-size: 0.9rem; line-height: 1.6; resize: vertical; outline: none;
-  transition: border-color 0.2s;
+.qcard-ta {
+  width: 100%; padding: 0.85rem 1rem; resize: vertical;
+  line-height: 1.6;
 }
-.short-ta:focus { border-color: var(--v); background: rgba(124,110,247,0.04); }
-.short-ta::placeholder { color: var(--muted); }
 
 /* Modal */
 .modal-bg {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(6px); z-index: 100;
-  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px); z-index: 200;
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem;
 }
-.modal-box { padding: 2rem; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 1rem; }
-.modal-icon { font-size: 2rem; }
-.modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 700; }
+.modal-box { padding: 2rem; max-width: 400px; width: 100%; display: flex; flex-direction: column; gap: 1.1rem; }
+.modal-icon-wrap {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.2);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 400; }
 .modal-body  { font-size: 0.875rem; color: var(--t2); line-height: 1.6; }
-.modal-btns  { display: flex; gap: 0.75rem; margin-top: 0.25rem; flex-wrap: wrap; }
+.modal-actions { display: flex; gap: 0.75rem; }
 `;

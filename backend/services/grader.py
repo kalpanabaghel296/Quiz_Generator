@@ -1,19 +1,3 @@
-"""
-grader.py  –  Production-ready grading system for AI Quiz Generator
---------------------------------------------------------------------
-Supports:
-  • MCQ grading          (exact integer match)
-  • Short-answer grading (multi-strategy pipeline)
-      1. Exact / normalised match
-      2. Token overlap (Jaccard)
-      3. SequenceMatcher fuzzy ratio
-      4. Keyword presence scoring
-  • Partial marks        (configurable)
-  • Null / empty answer  handling
-  • Per-question feedback messages
-  • Aggregate result summary
-"""
-
 from __future__ import annotations
 
 import re
@@ -23,13 +7,8 @@ from difflib import SequenceMatcher
 from typing import Any, Optional, Union
 
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-
 @dataclass
 class GradingConfig:
-    """Tune grading behaviour without touching logic."""
 
     # Short-answer thresholds (0–1)
     exact_match_score: float = 1.0
@@ -55,11 +34,6 @@ class GradingConfig:
 
 DEFAULT_CONFIG = GradingConfig()
 
-
-# ---------------------------------------------------------------------------
-# Data models
-# ---------------------------------------------------------------------------
-
 @dataclass
 class QuestionResult:
     id: int
@@ -84,10 +58,6 @@ class GradingResult:
     grade: str                         # A / B / C / D / F
     questions: list[QuestionResult] = field(default_factory=list)
 
-
-# ---------------------------------------------------------------------------
-# Text normalisation helpers
-# ---------------------------------------------------------------------------
 
 _STOP_WORDS = frozenset(
     "a an the is are was were be been being have has had do does did "
@@ -115,11 +85,6 @@ def _extract_keywords(answer: str) -> list[str]:
     Filters out stop-words and very short tokens.
     """
     return [t for t in _tokenise(answer) if len(t) > 2]
-
-
-# ---------------------------------------------------------------------------
-# Grading strategies
-# ---------------------------------------------------------------------------
 
 def _grade_exact(user_norm: str, correct_norm: str) -> tuple[float, str]:
     if user_norm == correct_norm:
@@ -189,10 +154,6 @@ def _grade_keywords(
 
     return 0.0, f"keywords_none({matched}/{len(keywords)})"
 
-
-# ---------------------------------------------------------------------------
-# Public graders
-# ---------------------------------------------------------------------------
 
 def grade_mcq(
     question_id: int,
@@ -299,28 +260,12 @@ def grade_short(
     )
 
 
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
-
 def grade_quiz(
     questions: list[dict],
     user_answers: list[dict],
     cfg: GradingConfig = DEFAULT_CONFIG,
 ) -> GradingResult:
-    """
-    Grade a full quiz.
-
-    Parameters
-    ----------
-    questions   : list of question dicts  (id, type, answer, …)
-    user_answers: list of answer dicts    (id, answer)
-    cfg         : grading configuration
-
-    Returns
-    -------
-    GradingResult with per-question breakdown + aggregate stats
-    """
+   
     # Build lookup: question_id → user_answer
     answer_map: dict[int, Any] = {
         item["id"]: item.get("answer") for item in user_answers
@@ -389,11 +334,6 @@ def _letter_grade(pct: float) -> str:
         return "D"
     return "F"
 
-
-# ---------------------------------------------------------------------------
-# FastAPI integration helpers
-# ---------------------------------------------------------------------------
-
 def grading_result_to_dict(result: GradingResult) -> dict:
     """Serialise GradingResult to a plain dict for JSON responses."""
     return {
@@ -423,29 +363,12 @@ def grading_result_to_dict(result: GradingResult) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
-# grade_answers — adapter used by main.py
-# ---------------------------------------------------------------------------
-
 def grade_answers(
     quiz: list[dict],
     answers: list[dict],
     cfg: GradingConfig = DEFAULT_CONFIG,
 ) -> dict:
-    """
-    Adapter so main.py can call:
-        grade_answers(quiz, answers)
-
-    Accepts two calling styles for answers:
-
-    Style A — list of dicts with 'id' key (preferred, ID-based):
-        [{"id": 1, "answer": 2}, {"id": 2, "answer": "photosynthesis"}]
-
-    Style B — flat dict keyed by question id as string or int:
-        {"1": 2, "2": "photosynthesis"}
-
-    Returns the full grading result dict (summary + breakdown).
-    """
+   
     # Normalise Style B → Style A
     if isinstance(answers, dict):
         answers = [{"id": int(k), "answer": v} for k, v in answers.items()]
@@ -454,15 +377,7 @@ def grade_answers(
     return grading_result_to_dict(result)
 
 def grade_answers(quiz, answers, cfg=None):
-    """
-    Adapter so main.py can call grade_answers(quiz, answers).
- 
-    Handles two answer formats from frontend:
-      List:  [{"id": 1, "answer": 2}, {"id": 2, "answer": "photosynthesis"}]
-      Dict:  {"1": 2, "2": "some text"}
- 
-    Returns the full grading result dict (summary + breakdown).
-    """
+   
     if cfg is None:
         cfg = DEFAULT_CONFIG
  

@@ -1,11 +1,3 @@
-"""
-routes/grade.py  –  FastAPI grading endpoint
---------------------------------------------
-Mount this router in your main app:
-
-    from routes.grade import router as grade_router
-    app.include_router(grade_router, prefix="/api")
-"""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -14,11 +6,6 @@ from typing import Any, List, Optional
 from grader import GradingConfig, grade_quiz, grading_result_to_dict
 
 router = APIRouter()
-
-
-# ---------------------------------------------------------------------------
-# Request / Response schemas
-# ---------------------------------------------------------------------------
 
 class QuestionIn(BaseModel):
     id: int
@@ -42,10 +29,6 @@ class GradeRequest(BaseModel):
     high_fuzzy_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
     mid_fuzzy_threshold: float = Field(default=0.60, ge=0.0, le=1.0)
 
-
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
 
 @router.post("/grade")
 async def grade_endpoint(payload: GradeRequest):
