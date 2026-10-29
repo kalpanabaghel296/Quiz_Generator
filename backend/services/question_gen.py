@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # ── Groq client ──────────────────────────────────────────────────────────────
 _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL   = "llama-3.1-8b-instant"
+MODEL   = "openai/gpt-oss-20b"
 MAX_RETRIES = 2
 
 
