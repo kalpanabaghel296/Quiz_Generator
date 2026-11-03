@@ -18,7 +18,7 @@ import logging
 import re
 import math
 from groq import Groq
-from services.rag_pipeline import get_document
+from services.rag_pipeline import retrieve_relevant_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -245,6 +245,7 @@ def _validate_and_fix(questions: list, mode: str, num_questions: int) -> list:
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
+
 def generate_quiz(
     doc_id: str,
     mode: str,
@@ -253,52 +254,118 @@ def generate_quiz(
     num_questions: int,
 ) -> list[dict]:
     """
-    Generate a quiz from a stored document.
-
-    Parameters
-    ----------
-    doc_id        : str  — document identifier from ingest_document()
-    mode          : str  — "mcq" | "short" | "mixed"
-    difficulty    : str  — "easy" | "medium" | "hard"
-    prompt        : str  — optional extra instructions from the user
-    num_questions : int  — total questions to generate
-
-    Returns
-    -------
-    list of question dicts
+    Generate a quiz using relevant document chunks retrieved from ChromaDB.
     """
-    # Retrieve document text
-    text = get_document(doc_id)
 
-    mode       = mode.lower().strip()
+    mode = mode.lower().strip()
     difficulty = difficulty.lower().strip()
-    num_questions = max(1, min(num_questions, 30))  # clamp 1–30
+    num_questions = max(1, min(num_questions, 30))
 
     if mode not in ("mcq", "short", "mixed"):
         mode = "mcq"
+
     if difficulty not in DIFFICULTY_INSTRUCTIONS:
         difficulty = "medium"
 
-    full_prompt = _build_prompt(text, mode, difficulty, num_questions, prompt)
+    # Step 1: Build a semantic retrieval query
+    retrieval_query = (
+        prompt.strip()
+        if prompt and prompt.strip()
+        else (
+            "Important concepts, definitions, explanations, processes, "
+            "examples, and facts from this document for quiz generation."
+        )
+    )
 
+    # Step 2: Retrieve relevant chunks from ChromaDB
+    try:
+        retrieved_chunks = retrieve_relevant_chunks(
+            query=retrieval_query,
+            doc_id=doc_id,
+            top_k=8
+        )
+
+        if not retrieved_chunks:
+            raise KeyError(f"No document found for doc_id: {doc_id}")
+
+        logger.info(
+            f"Retrieved {len(retrieved_chunks)} relevant chunks "
+            f"for document {doc_id}"
+        )
+
+    except Exception as e:
+        logger.error(f"Document retrieval failed: {e}")
+        raise
+
+    # Step 3: Combine retrieved chunks into context
+    context = "\n\n".join(
+        f"[Relevant Context {i + 1}]\n{chunk}"
+        for i, chunk in enumerate(retrieved_chunks)
+    )
+
+    # Step 4: Build the Groq prompt using retrieved context
+    full_prompt = _build_prompt(
+        context,
+        mode,
+        difficulty,
+        num_questions,
+        prompt
+    )
+
+    # Step 5: Generate quiz using Groq
     last_error = None
+
     for attempt in range(1, MAX_RETRIES + 2):
+
         try:
-            logger.info(f"Generating quiz (attempt {attempt}): mode={mode}, difficulty={difficulty}, n={num_questions}")
+            logger.info(
+                f"Generating RAG quiz (attempt {attempt}): "
+                f"mode={mode}, difficulty={difficulty}, "
+                f"questions={num_questions}"
+            )
+
             response = _client.chat.completions.create(
                 model=MODEL,
-                messages=[{"role": "user", "content": full_prompt}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ],
                 temperature=0.4,
                 max_tokens=4096,
             )
+
             raw = response.choices[0].message.content
+
+            if not raw:
+                raise ValueError("Groq returned an empty response.")
+
+            # Step 6: Parse AI response
             questions_raw = _extract_json(raw)
-            questions     = _validate_and_fix(questions_raw, mode, num_questions)
-            logger.info(f"Generated {len(questions)} questions successfully.")
+
+            # Step 7: Validate and normalize questions
+            questions = _validate_and_fix(
+                questions_raw,
+                mode,
+                num_questions
+            )
+
+            logger.info(
+                f"Successfully generated {len(questions)} "
+                f"questions using RAG."
+            )
+
             return questions
 
         except Exception as e:
             last_error = e
-            logger.warning(f"Attempt {attempt} failed: {e}")
 
-    raise RuntimeError(f"Quiz generation failed after {MAX_RETRIES + 1} attempts. Last error: {last_error}")
+            logger.warning(
+                f"Quiz generation attempt {attempt} failed: {e}"
+            )
+
+    raise RuntimeError(
+        f"Quiz generation failed after {MAX_RETRIES + 1} attempts. "
+        f"Last error: {last_error}"
+    )

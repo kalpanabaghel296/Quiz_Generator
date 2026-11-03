@@ -5,7 +5,6 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from services.pdf_processor import extract_text_from_pdf
-from services.ocr_processor import ocr_pdf
 from services.rag_pipeline import ingest_document
 from services.question_gen import generate_quiz
 from services.grader import grade_answers
@@ -36,12 +35,13 @@ def home():
     }
 
 
+
 # ── Upload PDF ────────────────────────────────────────────────────────────────
-# Handles both /api/upload (frontend) and /api/upload-pdf (old route)
 
 @app.post("/api/upload")
 @app.post("/api/upload-pdf")
 async def upload_pdf(file: UploadFile = File(...)):
+
     file_id = str(uuid.uuid4())
     path = f"temp_{file_id}.pdf"
 
@@ -49,19 +49,33 @@ async def upload_pdf(file: UploadFile = File(...)):
         with open(path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        # Step 1: Extract PDF text
         text = extract_text_from_pdf(path)
 
-        if len(text.strip()) < 50:
-            text = ocr_pdf(path)
-
+        
         if not text.strip():
-            raise HTTPException(status_code=422, detail="Could not extract text from this PDF.")
+            raise HTTPException(
+                status_code=422,
+                detail="Could not extract text from this PDF. Please upload a text-based PDF"
+            )
 
-        doc_id = ingest_document(text)
-        return {"doc_id": doc_id, "text": text, "preview": text[:1000]}
+        # Step 3: Store document chunks and embeddings in ChromaDB
+        document_info = ingest_document(
+            text=text,
+            filename=file.filename or "uploaded.pdf"
+        )
+
+        # Step 4: Return document ID to frontend
+        return {
+            "doc_id": document_info["doc_id"],
+            "filename": document_info["filename"],
+            "total_chunks": document_info["total_chunks"],
+            "text": text,
+            "preview": text[:1000]
+        }
 
     finally:
-        # Clean up temp file
+        # Clean up temporary PDF
         if os.path.exists(path):
             os.remove(path)
 
