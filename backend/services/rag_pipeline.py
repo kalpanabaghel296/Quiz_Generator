@@ -1,38 +1,142 @@
 
+import os
 import uuid
+import math
 from pathlib import Path
 
 import chromadb
-from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 # ---------------------------------
-# 1. Initialize ChromaDB
+# 1. Configuration
 # ---------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CHROMA_PATH = BASE_DIR / "chroma_db"
 
+EMBEDDING_PROVIDER = os.getenv(
+    "EMBEDDING_PROVIDER", "local"
+).lower()
+
+GEMINI_MODEL = "gemini-embedding-001"
+GEMINI_DIMENSIONS = 768
+
+# Keep separate collections because local and Gemini
+# embeddings belong to different vector spaces.
+COLLECTION_NAMES = {
+    "local": "eduquiz_documents_local",
+    "gemini": "eduquiz_documents_gemini",
+}
+
+if EMBEDDING_PROVIDER not in COLLECTION_NAMES:
+    raise ValueError(
+        "EMBEDDING_PROVIDER must be 'local' or 'gemini'."
+    )
+
 client = chromadb.PersistentClient(path=str(CHROMA_PATH))
 
 collection = client.get_or_create_collection(
-    name="eduquiz_documents",
+    name=COLLECTION_NAMES[EMBEDDING_PROVIDER],
     metadata={"hnsw:space": "cosine"}
 )
 
 
 # ---------------------------------
-# 2. Load local embedding model
+# 2. Lazy embedding model setup
 # ---------------------------------
 
-print("Loading local embedding model...")
+embedding_model = None
+gemini_client = None
 
-embedding_model = SentenceTransformer(
-    "sentence-transformers/all-MiniLM-L6-v2"
-)
 
-print("Embedding model ready!")
+def get_local_model():
+    global embedding_model
+
+    if embedding_model is None:
+        print("Loading local Sentence Transformer...")
+
+        # Imported only when local embeddings are selected.
+        from sentence_transformers import SentenceTransformer
+
+        embedding_model = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2"
+        )
+
+        print("Local embedding model ready!")
+
+    return embedding_model
+
+
+def get_gemini_client():
+    global gemini_client
+
+    if gemini_client is None:
+        from google import genai
+
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            raise ValueError(
+                "GEMINI_API_KEY is missing from environment variables."
+            )
+
+        gemini_client = genai.Client(api_key=api_key)
+
+    return gemini_client
+
+
+def normalize_embedding(values):
+    """Normalize reduced-dimensional Gemini embeddings."""
+    magnitude = math.sqrt(sum(value * value for value in values))
+
+    if magnitude == 0:
+        return values
+
+    return [value / magnitude for value in values]
+
+
+def generate_embeddings(texts, task_type):
+    if not texts:
+        return []
+
+    if EMBEDDING_PROVIDER == "local":
+        model = get_local_model()
+
+        return model.encode(
+            texts,
+            show_progress_bar=False
+        ).tolist()
+
+    # Gemini embedding mode
+    from google.genai import types
+
+    gemini = get_gemini_client()
+    all_embeddings = []
+
+    # Send manageable batches to Gemini.
+    batch_size = 50
+
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start:start + batch_size]
+
+        response = gemini.models.embed_content(
+            model=GEMINI_MODEL,
+            contents=batch,
+            config=types.EmbedContentConfig(
+                task_type=task_type,
+                output_dimensionality=GEMINI_DIMENSIONS
+            )
+        )
+
+        batch_embeddings = [
+            normalize_embedding(item.values)
+            for item in response.embeddings
+        ]
+
+        all_embeddings.extend(batch_embeddings)
+
+    return all_embeddings
 
 
 # ---------------------------------
@@ -62,10 +166,10 @@ def ingest_document(text: str, filename: str):
     if not chunks:
         raise ValueError("No text chunks were generated.")
 
-    embeddings = embedding_model.encode(
+    embeddings = generate_embeddings(
         chunks,
-        show_progress_bar=False
-    ).tolist()
+        task_type="RETRIEVAL_DOCUMENT"
+    )
 
     ids = [
         f"{doc_id}_{i}"
@@ -90,6 +194,7 @@ def ingest_document(text: str, filename: str):
 
     print(f"Document stored: {filename}")
     print(f"Total chunks: {len(chunks)}")
+    print(f"Embedding provider: {EMBEDDING_PROVIDER}")
 
     return {
         "doc_id": doc_id,
@@ -108,12 +213,16 @@ def retrieve_relevant_chunks(
     top_k: int = 5
 ):
 
-    query_embedding = embedding_model.encode(
-        [query]
-    ).tolist()
+    if not query or not query.strip():
+        return []
+
+    query_embeddings = generate_embeddings(
+        [query],
+        task_type="RETRIEVAL_QUERY"
+    )
 
     results = collection.query(
-        query_embeddings=query_embedding,
+        query_embeddings=query_embeddings,
         n_results=top_k,
         where={"doc_id": doc_id}
     )
