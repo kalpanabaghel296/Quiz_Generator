@@ -45,7 +45,7 @@ The Quiz Generator is a full-stack web application that allows users to upload a
 
 ### AI Integration
 
-* Groq API (llama-3.1-8b-instant)
+* Groq API (OpenAI GPT-OSS 20B)
 
 ### Libraries Used
 
